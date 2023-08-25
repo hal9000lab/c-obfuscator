@@ -78,5 +78,6 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
                 continue
         copy_symbol_table = copy.deepcopy(symbol_table)
         for symbol in copy_symbol_table.symbols:
-            symbol.name = base64.b32encode(sha256(symbol.name.encode()).digest()).rstrip(b"=").decode().lower()
-            print(symbol.name)
+            if symbol.type == "function":
+                symbol.name = base64.b32encode(sha256(symbol.name.encode()).digest()).rstrip(b"=").decode().lower()
+                print(symbol.name)
