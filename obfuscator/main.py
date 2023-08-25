@@ -42,7 +42,8 @@ def main():
             symbol_table = processor.process_c_code(file_path, code_file.readlines())
             symbol_tables.append(symbol_table)
 
-    print(symbol_tables)
+    logger.info(f"Loaded {len(symbol_tables)} symbol tables.")
+    hashed_symbols = processor.hash_symbols(symbol_tables)
 
 
 if __name__ == "__main__":
