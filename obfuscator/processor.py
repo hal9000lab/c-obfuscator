@@ -33,13 +33,11 @@ class Symbol:
 class SymbolTable:
     file_path: pathlib.Path
     symbols: List[Symbol]
+    header_file: bool = False
 
 
 # Regular expression for matching C function and extract function name
 re_c_function = re.compile(r"^\w+\s+(?P<var_name>\w+)\(.*\)\s*{?.*")
-
-# Regular expression for extracting C function name with the return type
-# re_c_function_with_return_type = re.compile(r"^\w+\s+(\w+)\(.*\)\s*{?.*")
 
 # Regular expression for matching C++ class method and extract method name
 re_cpp_method = re.compile(r"^\w+\s+(\w+)::(\w+)\(.*\)\s*{.*")
@@ -95,14 +93,24 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
             )
             symbols.append(symbol)
 
-    symbol_table = SymbolTable(file_path, symbols)
+    symbol_table = SymbolTable(file_path, symbols, header_file = file_path.suffix in [".h", ".hpp"])
     return symbol_table
 
 
 def _find_duplicates(symbols_tables: List[SymbolTable]) -> List[str]:
+    """Find duplicate symbols in the symbol tables
+
+    Args:
+        symbols_tables (List[SymbolTable]): [description]
+
+    Returns:
+        List[str]: list of duplicated symbols
+    """
     # Find duplicate symbols
     symbols = []
     for symbol_table in symbols_tables:
+        if symbol_table.header_file:
+            continue
         for symbol in symbol_table.symbols:
             symbols.append(symbol.name)
 
@@ -115,10 +123,24 @@ def _find_duplicates(symbols_tables: List[SymbolTable]) -> List[str]:
 
 
 def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = None) -> Dict[str, str]:
+    """Hash the symbols in the symbol tables
+
+    Args:
+        symbol_tables (List[SymbolTable]): [description]
+        ignore_files (List[str], optional): [description]. Defaults to None.
+
+    Returns:
+        Dict[str, str]: [description]
+    """
+
     if ignore_files is None:
         ignore_files = []
     global_hashed_symbol_table = {}
     duplicates = _find_duplicates(symbol_tables)
+    with open("duplicates.txt", "w") as f:
+        for duplicate in duplicates:
+            f.write(f"{duplicate}\n")
+
     for symbol_table in symbol_tables:
         for ignore_file in ignore_files:
             if ignore_file in str(symbol_table.file_path):
@@ -138,7 +160,8 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
                     logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
                     continue
                 global_hashed_symbol_table[symbol.name] = new_name
-                logger.info(f"Hashed static variable name '{symbol.name}' to '{new_name}' {symbol_table.file_path}:{symbol.line}")
+                logger.info(f"Hashed static variable name '{symbol.name}' to '{new_name}' "
+                            f"{symbol_table.file_path}:{symbol.line}")
 
     return global_hashed_symbol_table
 

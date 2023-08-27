@@ -28,9 +28,10 @@ def main():
         r".*(build|\.git|\.vscode|\.idea|\.pytest_cache|__pycache__|cmake).*"
     )
 
+    src_files = [file_path for ext in [".cpp", ".h"] for file_path in dirs.glob(f"**/*{ext}")]
     # Scan to get the symbol table.
     symbol_tables = []
-    for file_path in dirs.glob("**/*.cpp"):
+    for file_path in src_files:
         if ignore_dir_names.match(str(file_path)) is not None:
             continue
 
@@ -46,7 +47,6 @@ def main():
             f.write(f"{key} {value}\n")
 
     # Rewrite the files.
-    src_files = [file_path for ext in [".cpp", ".h"] for file_path in dirs.glob(f"**/*{ext}")]
     for file_path in src_files:
         if ignore_dir_names.match(str(file_path)) is not None:
             continue
