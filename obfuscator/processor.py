@@ -1,23 +1,27 @@
 import base64
-import copy
 import dataclasses
-import hashlib
+import logging
 import pathlib
 import random
 import re
-import logging
+from enum import Enum
 from hashlib import sha256
 from typing import List, Optional, Dict
 
-import pycparser
-
 logger = logging.getLogger(__name__)
+
+
+class SymbolType(Enum):
+    FUNCTION = "function"
+    METHOD = "method"
+    CLASS = "class"
+    STATIC_VARIABLE = "static_variable"
 
 
 @dataclasses.dataclass
 class Symbol:
     name: str
-    type: str
+    type: SymbolType
     return_type: str
     line: int
     class_name: Optional[str] = None
@@ -37,6 +41,9 @@ re_c_function = re.compile(r"^\w+\s+(\w+)\(.*\)\s*{?.*")
 
 # Regular expression for matching C++ class method and extract method name
 re_cpp_method = re.compile(r"^\w+\s+(\w+)::(\w+)\(.*\)\s*{.*")
+
+# Regular expression for matching static variable, like static bool updateBaseline
+re_static_variable = re.compile(r"^\w+\s+(?P<var_type>\w+)\s+(?P<var_name>\w+)\s*;.*")
 
 
 def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
@@ -59,7 +66,7 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
             groups = re_c_function.findall(line.strip())
             symbol = Symbol(
                 name=groups[0],
-                type="function",
+                type=SymbolType.FUNCTION,
                 return_type=None,
                 line=line_number,
                 class_name=None
@@ -69,7 +76,7 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
             groups = re_cpp_method.findall(line.strip())[0]
             symbol = Symbol(
                 name=groups[1],
-                type="method",
+                type=SymbolType.METHOD,
                 line=line_number,
                 class_name=groups[0],
                 return_type=None

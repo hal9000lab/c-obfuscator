@@ -1,11 +1,7 @@
 import argparse
-import os
 import logging
 import pathlib
 import re
-
-import pycparser
-import clang.cindex
 
 from obfuscator import processor
 
