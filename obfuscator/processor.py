@@ -8,6 +8,8 @@ from enum import Enum
 from hashlib import sha256
 from typing import List, Optional, Dict
 
+from obfuscator.symbol_encoder import encode_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +36,7 @@ class SymbolTable:
 
 
 # Regular expression for matching C function and extract function name
-re_c_function = re.compile(r"^\w+\s+(\w+)\(.*\)\s*{?.*")
+re_c_function = re.compile(r"^\w+\s+(?P<var_name>\w+)\(.*\)\s*{?.*")
 
 # Regular expression for extracting C function name with the return type
 # re_c_function_with_return_type = re.compile(r"^\w+\s+(\w+)\(.*\)\s*{?.*")
@@ -43,7 +45,7 @@ re_c_function = re.compile(r"^\w+\s+(\w+)\(.*\)\s*{?.*")
 re_cpp_method = re.compile(r"^\w+\s+(\w+)::(\w+)\(.*\)\s*{.*")
 
 # Regular expression for matching static variable, like static bool updateBaseline
-re_static_variable = re.compile(r"^\w+\s+(?P<var_type>\w+)\s+(?P<var_name>\w+)\s*;.*")
+re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_ ]+)\s+(?P<var_name>\w+)\s*=?.*;.*")
 
 
 def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
@@ -82,15 +84,25 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
                 return_type=None
             )
             symbols.append(symbol)
+        elif re_static_variable.match(line) is not None:
+            groups = re_static_variable.match(line.strip())
+            symbol = Symbol(
+                name=groups.group("var_name"),
+                type=SymbolType.STATIC_VARIABLE,
+                line=line_number,
+                class_name=None,
+                return_type=groups.group("var_type")
+            )
+            symbols.append(symbol)
 
     symbol_table = SymbolTable(file_path, symbols)
     return symbol_table
 
 
-def _find_duplicates(symbold_tables: List[SymbolTable]) -> List[str]:
+def _find_duplicates(symbols_tables: List[SymbolTable]) -> List[str]:
     # Find duplicate symbols
     symbols = []
-    for symbol_table in symbold_tables:
+    for symbol_table in symbols_tables:
         for symbol in symbol_table.symbols:
             symbols.append(symbol.name)
 
@@ -112,30 +124,23 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
             if ignore_file in str(symbol_table.file_path):
                 continue
         for symbol in symbol_table.symbols:
-            if symbol.type == "function":
-                new_name = base64.b32encode(sha256(symbol.name.encode()).digest()).rstrip(b"=").decode().lower()
-                if ord('0') <= ord(new_name[0]) <= ord('9'):
-                    new_name = chr(random.randint(97, 122)) + new_name[1:]
+            if symbol.type == SymbolType.FUNCTION:
+                new_name = encode_name(symbol.name)
 
                 if symbol.name in duplicates:
                     logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
                     continue
-
+                # logger.info(f"Hashed function name '{symbol.name}' to '{new_name}'")
                 global_hashed_symbol_table[symbol.name] = new_name
+            elif symbol.type == SymbolType.STATIC_VARIABLE:
+                new_name = encode_name(symbol.name)
+                if symbol.name in duplicates:
+                    logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
+                    continue
+                global_hashed_symbol_table[symbol.name] = new_name
+                logger.info(f"Hashed static variable name '{symbol.name}' to '{new_name}' {symbol_table.file_path}:{symbol.line}")
 
     return global_hashed_symbol_table
 
 
-def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dict[str, str]):
-    with open(orig_file) as code_file:
-        lines = code_file.readlines()
 
-    for line_number, line in enumerate(lines, 0):
-        for orig_name, new_name in hashed_symbol_table.items():
-            if orig_name in line:
-                lines[line_number] = line.replace(orig_name, new_name)
-
-    dst_file = pathlib.Path(dst_dir) / orig_file.name
-    with open(dst_file, "w") as code_file:
-        code_file.writelines(lines)
-        logger.info(f"Rewrote {orig_file} to {dst_file}")
