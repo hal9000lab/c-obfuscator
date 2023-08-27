@@ -45,6 +45,15 @@ def main():
     logger.info(f"Loaded {len(symbol_tables)} symbol tables.")
     hashed_symbols = processor.hash_symbols(symbol_tables)
 
+    # Rewrite the files.
+    src_files = [file_path for ext in [".cpp", ".h"] for file_path in dirs.glob(f"**/*{ext}")]
+    for file_path in src_files:
+        if ignore_dir_names.match(str(file_path)) is not None:
+            continue
+
+        processor.rewrite_file(file_path, args.output, hashed_symbols)
+
+
 
 if __name__ == "__main__":
     main()
