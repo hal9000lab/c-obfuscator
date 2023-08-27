@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "c-obfuscator"
-version = "0.1.0"
+version = "0.0.1"
 description = ""
 authors = ["Jakub Krajniak <jkrajniak@gmail.com>"]
 readme = "README.md"
@@ -8,8 +8,6 @@ packages = [{include = "c_obfuscator"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-pycparser = "^2.21"
-libclang = "^16.0.6"
 
 
 [build-system]
