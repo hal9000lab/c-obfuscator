@@ -37,13 +37,13 @@ class SymbolTable:
 
 
 # Regular expression for matching C function and extract function name
-re_c_function = re.compile(r"^\w+\s+(?P<var_name>\w+)\(.*\)\s*{?.*")
+re_c_function = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\)\s*{?.*")
 
 # Regular expression for matching C++ class method and extract method name
-re_cpp_method = re.compile(r"^\w+\s+(\w+)::(\w+)\(.*\)\s*{.*")
+re_cpp_method = re.compile(r"^\w+\s+(?P<class_name>\w+)::(?P<method_name>\w+)\(.*\)\s*{.*")
 
 # Regular expression for matching static variable, like static bool updateBaseline
-re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_ ]+)\s+(?P<var_name>\w+)\s*=?.*;.*")
+re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+(?P<var_name>\w+)\s*=?.*;.*")
 
 
 def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
@@ -51,6 +51,7 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
     symbols = []
 
     in_class_definition = False
+    is_header_file = file_path.suffix in [".h", ".hpp"]
 
     for line_number, line in enumerate(lines, 1):
         # For now, let's ignore class definition.
@@ -63,9 +64,9 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
             continue
 
         if re_c_function.match(line) is not None:
-            groups = re_c_function.findall(line.strip())
+            groups = re_c_function.match(line.strip())
             symbol = Symbol(
-                name=groups[0],
+                name=groups.group("func_name"),
                 type=SymbolType.FUNCTION,
                 return_type=None,
                 line=line_number,
@@ -73,12 +74,12 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
             )
             symbols.append(symbol)
         elif re_cpp_method.match(line) is not None:
-            groups = re_cpp_method.findall(line.strip())[0]
+            groups = re_cpp_method.match(line.strip())
             symbol = Symbol(
-                name=groups[1],
+                name=groups.group("method_name"),
                 type=SymbolType.METHOD,
                 line=line_number,
-                class_name=groups[0],
+                class_name=groups.group("class_name"),
                 return_type=None
             )
             symbols.append(symbol)
@@ -93,7 +94,7 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
             )
             symbols.append(symbol)
 
-    symbol_table = SymbolTable(file_path, symbols, header_file = file_path.suffix in [".h", ".hpp"])
+    symbol_table = SymbolTable(file_path, symbols, header_file=is_header_file)
     return symbol_table
 
 
@@ -164,6 +165,3 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
                             f"{symbol_table.file_path}:{symbol.line}")
 
     return global_hashed_symbol_table
-
-
-
