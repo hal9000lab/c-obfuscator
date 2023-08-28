@@ -43,7 +43,7 @@ re_c_function = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\)\s*{?
 re_cpp_method = re.compile(r"^\w+\s+(?P<class_name>\w+)::(?P<method_name>\w+)\(.*\)\s*{.*")
 
 # Regular expression for matching static variable, like static bool updateBaseline
-re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+(?P<var_name>\w+)\s*=?.*;.*")
+re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+(?P<var_name>\w+)\s*=?.*(;|{).*")
 
 
 def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:

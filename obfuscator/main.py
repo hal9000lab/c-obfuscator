@@ -3,7 +3,7 @@ import logging
 import pathlib
 import re
 
-from obfuscator import processor, file_io
+from obfuscator import processor, files_io
 
 logging.basicConfig(level=logging.INFO)
 
@@ -15,6 +15,7 @@ def _args():
     parser.add_argument("location", help="Location of the file to be processed")
     parser.add_argument("output", help="Location of the output files")
     parser.add_argument("--ignore-file", nargs="*", help="Ignore file")
+    parser.add_argument("--tmp", default=None, help="Temporary directory")
 
     return parser.parse_args()
 
@@ -22,13 +23,14 @@ def _args():
 def main():
     args = _args()
 
-    dirs = pathlib.Path(args.location)
+    src_dir = files_io.prepare_source_files(args.location, args.tmp)
+    src_dir = pathlib.Path(src_dir)
 
     ignore_dir_names = re.compile(
         r".*(build|\.git|\.vscode|\.idea|\.pytest_cache|__pycache__|cmake).*"
     )
 
-    src_files = [file_path for ext in [".cpp", ".h"] for file_path in dirs.glob(f"**/*{ext}")]
+    src_files = [file_path for ext in [".cpp", ".h"] for file_path in src_dir.glob(f"**/*{ext}")]
     # Scan to get the symbol table.
     symbol_tables = []
     for file_path in src_files:
@@ -51,8 +53,7 @@ def main():
         if ignore_dir_names.match(str(file_path)) is not None:
             continue
 
-        file_io.rewrite_file(file_path, args.output, hashed_symbols)
-
+        files_io.rewrite_file(file_path, args.output, hashed_symbols)
 
 
 if __name__ == "__main__":
