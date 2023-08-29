@@ -9,6 +9,7 @@ packages = [{include = "c_obfuscator"}]
 [tool.poetry.dependencies]
 python = "^3.9"
 clang-format = "^16.0.6"
+pycparser = "^2.21"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -1,5 +1,6 @@
 import base64
 import dataclasses
+import enum
 import logging
 import pathlib
 import random
@@ -20,6 +21,15 @@ class SymbolType(Enum):
     STATIC_VARIABLE = "static_variable"
 
 
+class LineContextType(Enum):
+    CLASS_DEFINITION = "class_definition"
+    CLASS_IMPLEMENTATION = "class_implementation"
+    FUNCTION_DEFINITION = "function_definition"
+    FUNCTION_IMPLEMENTATION = "function_implementation"
+    STATIC_VARIABLE = "static_variable"
+    GLOBAL_VARIABLE = "global_variable"
+
+
 @dataclasses.dataclass
 class Symbol:
     name: str
@@ -35,9 +45,9 @@ class SymbolTable:
     symbols: List[Symbol]
     header_file: bool = False
 
+re_c_function = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\)\s*{$")
 
-# Regular expression for matching C function and extract function name
-re_c_function = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\)\s*{?.*")
+re_c_function_def = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\);")
 
 # Regular expression for matching C++ class method and extract method name
 re_cpp_method = re.compile(r"^\w+\s+(?P<class_name>\w+)::(?P<method_name>\w+)\(.*\)\s*{.*")
@@ -50,49 +60,57 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
     # Get the symbol table from the C code
     symbols = []
 
-    in_class_definition = False
+    line_context: LineContextType = LineContextType.GLOBAL_VARIABLE
     is_header_file = file_path.suffix in [".h", ".hpp"]
 
+    last_symbol = None
+
     for line_number, line in enumerate(lines, 1):
-        # For now, let's ignore class definition.
-        if line.strip().startswith("class"):
-            in_class_definition = True
-            continue
-        if in_class_definition:
-            if line.strip().startswith("};"):
-                in_class_definition = False
+        line_strip = line.strip()
+        # Ignore comments
+        if line_strip.startswith("//") or line_strip.startswith("/*") or line_strip.startswith("*") or line_strip.startswith("#"):
             continue
 
-        if re_c_function.match(line) is not None:
-            groups = re_c_function.match(line.strip())
-            symbol = Symbol(
-                name=groups.group("func_name"),
-                type=SymbolType.FUNCTION,
-                return_type=None,
-                line=line_number,
-                class_name=None
-            )
+        # For now, let's ignore class definition.
+        if line_strip.startswith("class"):
+            line_context = LineContextType.CLASS_DEFINITION
+            continue
+        if line_context == LineContextType.CLASS_DEFINITION:
+            if line_strip.startswith("};"):
+                line_context = LineContextType.GLOBAL_VARIABLE
+            continue
+
+        if line_context == LineContextType.FUNCTION_DEFINITION:
+            if line_strip.startswith("}"):
+                line_context = LineContextType.GLOBAL_VARIABLE
+            continue
+
+        symbol = None
+
+        if line_context == LineContextType.GLOBAL_VARIABLE:
+            if re_c_function.match(line_strip) is not None:
+                groups = re_c_function.match(line_strip)
+                symbol = Symbol(
+                    name=groups.group("func_name"),
+                    type=SymbolType.FUNCTION,
+                    return_type=None,
+                    line=line_number,
+                    class_name=None
+                )
+                line_context = LineContextType.FUNCTION_DEFINITION
+            elif re_static_variable.match(line_strip) is not None:
+                groups = re_static_variable.match(line_strip)
+                symbol = Symbol(
+                    name=groups.group("var_name"),
+                    type=SymbolType.STATIC_VARIABLE,
+                    line=line_number,
+                    class_name=None,
+                    return_type=groups.group("var_type")
+                )
+
+        if symbol is not None:
             symbols.append(symbol)
-        elif re_cpp_method.match(line) is not None:
-            groups = re_cpp_method.match(line.strip())
-            symbol = Symbol(
-                name=groups.group("method_name"),
-                type=SymbolType.METHOD,
-                line=line_number,
-                class_name=groups.group("class_name"),
-                return_type=None
-            )
-            symbols.append(symbol)
-        elif re_static_variable.match(line) is not None:
-            groups = re_static_variable.match(line.strip())
-            symbol = Symbol(
-                name=groups.group("var_name"),
-                type=SymbolType.STATIC_VARIABLE,
-                line=line_number,
-                class_name=None,
-                return_type=groups.group("var_type")
-            )
-            symbols.append(symbol)
+            last_symbol = symbol
 
     symbol_table = SymbolTable(file_path, symbols, header_file=is_header_file)
     return symbol_table
@@ -110,9 +128,13 @@ def _find_duplicates(symbols_tables: List[SymbolTable]) -> List[str]:
     # Find duplicate symbols
     symbols = []
     for symbol_table in symbols_tables:
+        # Ignore duplicates in header files
         if symbol_table.header_file:
             continue
         for symbol in symbol_table.symbols:
+            # Ignore duplicates of static variables
+            # if symbol.type == SymbolType.STATIC_VARIABLE:
+            #     continue
             symbols.append(symbol.name)
 
     duplicates = []

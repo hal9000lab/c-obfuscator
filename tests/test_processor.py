@@ -13,7 +13,8 @@ from obfuscator import processor
     ("static const uint8_t PM = 10;", "PM", "const uint8_t"),
     ("static const double AMB = 10; // TODO: tune this ratio", "AMB", "const double"),
     ("#include <vector>", None, None),
-    ("'static const vector<uint8_t> SAMPLE = {1, 2, 3};", "SAMPLE", "const vector<uint8_t>"),
+    ("static const vector<uint8_t> SAMPLE = {1, 2, 3};", "SAMPLE", "const vector<uint8_t>"),
+    ("typedef struct SmokeData {", None, None),
 ])
 def test_re_static_variable(line, expected_name, expected_type):
     match = processor.re_static_variable.match(line)
