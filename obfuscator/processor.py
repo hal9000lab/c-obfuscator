@@ -4,7 +4,7 @@ import pathlib
 from enum import Enum
 from typing import List, Optional, Dict
 
-from obfuscator.parser import re_c_function, re_static_variable
+from obfuscator.parser import re_c_function, re_static_variable, re_const_variable
 from obfuscator.symbol_encoder import encode_name
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,7 @@ class SymbolType(Enum):
     METHOD = "method"
     CLASS = "class"
     STATIC_VARIABLE = "static_variable"
+    CONST_VARIABLE = "const_variable"
 
 
 class LineContextType(Enum):
@@ -75,8 +76,7 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
         symbol = None
 
         if line_context == LineContextType.GLOBAL_VARIABLE:
-            if re_c_function.match(line_strip) is not None:
-                groups = re_c_function.match(line_strip)
+            if groups := re_c_function.match(line_strip):
                 symbol = Symbol(
                     name=groups.group("func_name"),
                     type=SymbolType.FUNCTION,
@@ -85,11 +85,18 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
                     class_name=None
                 )
                 line_context = LineContextType.FUNCTION_DEFINITION
-            elif re_static_variable.match(line_strip) is not None:
-                groups = re_static_variable.match(line_strip)
+            elif groups := re_static_variable.match(line_strip):
                 symbol = Symbol(
                     name=groups.group("var_name"),
                     type=SymbolType.STATIC_VARIABLE,
+                    line=line_number,
+                    class_name=None,
+                    return_type=groups.group("var_type")
+                )
+            elif groups := re_const_variable.match(line):
+                symbol = Symbol(
+                    name=groups.group("var_name"),
+                    type=SymbolType.CONST_VARIABLE,
                     line=line_number,
                     class_name=None,
                     return_type=groups.group("var_type")
@@ -120,7 +127,7 @@ def _find_duplicates(symbols_tables: List[SymbolTable]) -> List[str]:
             continue
         for symbol in symbol_table.symbols:
             # Ignore duplicates of static variables
-            # if symbol.type == SymbolType.STATIC_VARIABLE:
+            # if symbol.typepe == SymbolType.STATIC_VARIABLE:
             #     continue
             symbols.append(symbol.name)
 
@@ -166,11 +173,19 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
                 global_hashed_symbol_table[symbol.name] = new_name
             elif symbol.type == SymbolType.STATIC_VARIABLE:
                 new_name = encode_name(symbol.name)
-                if symbol.name in duplicates:
-                    logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
-                    continue
+                # if symbol.name in duplicates:
+                #     logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
+                #     continue
                 global_hashed_symbol_table[symbol.name] = new_name
                 logger.info(f"Hashed static variable name '{symbol.name}' to '{new_name}' "
+                            f"{symbol_table.file_path}:{symbol.line}")
+            elif symbol.type == SymbolType.CONST_VARIABLE:
+                new_name = encode_name(symbol.name)
+                # if symbol.name in duplicates:
+                #     logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
+                #     continue
+                global_hashed_symbol_table[symbol.name] = new_name
+                logger.info(f"Hashed const variable name '{symbol.name}' to '{new_name}' "
                             f"{symbol_table.file_path}:{symbol.line}")
 
     return global_hashed_symbol_table

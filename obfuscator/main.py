@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import pathlib
+import random
 import re
 import shutil
 
@@ -22,11 +23,15 @@ def _args():
 
     parser.add_argument("--extra-file", action='append', help="Extra file to be rewritten")
 
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+
     return parser.parse_args()
 
 
 def main():
     args = _args()
+
+    random.seed(args.seed)
 
     src_dir = files_io.prepare_source_files(args.location, args.tmp)
 
