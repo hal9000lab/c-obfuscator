@@ -1,14 +1,10 @@
-import base64
 import dataclasses
-import enum
 import logging
 import pathlib
-import random
-import re
 from enum import Enum
-from hashlib import sha256
 from typing import List, Optional, Dict
 
+from obfuscator.parser import re_c_function, re_static_variable
 from obfuscator.symbol_encoder import encode_name
 
 logger = logging.getLogger(__name__)
@@ -45,16 +41,6 @@ class SymbolTable:
     symbols: List[Symbol]
     header_file: bool = False
 
-re_c_function = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\)\s*{$")
-
-re_c_function_def = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\);")
-
-# Regular expression for matching C++ class method and extract method name
-re_cpp_method = re.compile(r"^\w+\s+(?P<class_name>\w+)::(?P<method_name>\w+)\(.*\)\s*{.*")
-
-# Regular expression for matching static variable, like static bool updateBaseline
-re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+(?P<var_name>\w+)\s*=?.*(;|{).*")
-
 
 def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
     # Get the symbol table from the C code
@@ -68,7 +54,8 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
     for line_number, line in enumerate(lines, 1):
         line_strip = line.strip()
         # Ignore comments
-        if line_strip.startswith("//") or line_strip.startswith("/*") or line_strip.startswith("*") or line_strip.startswith("#"):
+        if line_strip.startswith("//") or line_strip.startswith("/*") or line_strip.startswith(
+                "*") or line_strip.startswith("#"):
             continue
 
         # For now, let's ignore class definition.
