@@ -4,7 +4,7 @@ import pathlib
 from enum import Enum
 from typing import List, Optional, Dict
 
-from obfuscator.parser import re_c_function, re_static_variable, re_const_variable
+from obfuscator.parser import re_c_function, re_static_variable, re_const_variable, re_cpp_class_name
 from obfuscator.symbol_encoder import encode_name
 
 logger = logging.getLogger(__name__)
@@ -14,6 +14,8 @@ class SymbolType(Enum):
     FUNCTION = "function"
     METHOD = "method"
     CLASS = "class"
+    CLASS_NAME = "class_name"
+    CLASS_IDENTITY = "class_identity"
     STATIC_VARIABLE = "static_variable"
     CONST_VARIABLE = "const_variable"
 
@@ -29,11 +31,27 @@ class LineContextType(Enum):
 
 @dataclasses.dataclass
 class Symbol:
-    name: str
+    _name: str
     type: SymbolType
     return_type: str
     line: int
     class_name: Optional[str] = None
+
+    @property
+    def name(self):
+        if self.type == SymbolType.CLASS_NAME:
+            return f"class {self._name}"
+        elif self.type == SymbolType.CLASS_IDENTITY:
+            return f"{self._name}::"
+        return self._name
+
+    @property
+    def hash_name(self):
+        if self.type == SymbolType.CLASS_NAME:
+            return f"class {encode_name(self._name)}"
+        elif self.type == SymbolType.CLASS_IDENTITY:
+            return f"{encode_name(self._name)}::"
+        return encode_name(self._name)
 
 
 @dataclasses.dataclass
@@ -60,51 +78,68 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
             continue
 
         # For now, let's ignore class definition.
-        if line_strip.startswith("class"):
-            line_context = LineContextType.CLASS_DEFINITION
-            continue
-        if line_context == LineContextType.CLASS_DEFINITION:
-            if line_strip.startswith("};"):
-                line_context = LineContextType.GLOBAL_VARIABLE
-            continue
+        # if line_strip.startswith("class"):
+        #     line_context = LineContextType.CLASS_DEFINITION
+        #     continue
+        # if line_context == LineContextType.CLASS_DEFINITION:
+        #     if line_strip.startswith("};"):
+        #         line_context = LineContextType.GLOBAL_VARIABLE
+        #     continue
+        #
+        # if line_context == LineContextType.FUNCTION_DEFINITION:
+        #     if line_strip.startswith("}"):
+        #         line_context = LineContextType.GLOBAL_VARIABLE
+        #     continue
 
-        if line_context == LineContextType.FUNCTION_DEFINITION:
-            if line_strip.startswith("}"):
-                line_context = LineContextType.GLOBAL_VARIABLE
-            continue
-
-        symbol = None
+        parsed_symbols = []
 
         if line_context == LineContextType.GLOBAL_VARIABLE:
             if groups := re_c_function.match(line_strip):
-                symbol = Symbol(
-                    name=groups.group("func_name"),
+                parsed_symbols = [Symbol(
+                    _name=groups.group("func_name"),
                     type=SymbolType.FUNCTION,
                     return_type=None,
                     line=line_number,
                     class_name=None
-                )
+                )]
                 line_context = LineContextType.FUNCTION_DEFINITION
-            elif groups := re_static_variable.match(line_strip):
-                symbol = Symbol(
-                    name=groups.group("var_name"),
+            elif groups := re_static_variable.match(line):
+                parsed_symbols = [Symbol(
+                    _name=groups.group("var_name"),
                     type=SymbolType.STATIC_VARIABLE,
                     line=line_number,
                     class_name=None,
                     return_type=groups.group("var_type")
-                )
+                )]
             elif groups := re_const_variable.match(line):
-                symbol = Symbol(
-                    name=groups.group("var_name"),
+                parsed_symbols = [Symbol(
+                    _name=groups.group("var_name"),
                     type=SymbolType.CONST_VARIABLE,
                     line=line_number,
                     class_name=None,
                     return_type=groups.group("var_type")
-                )
+                )]
+            elif groups := re_cpp_class_name.match(line):
+                parsed_symbols = [Symbol(
+                    _name=groups.group("class_name"),
+                    type=SymbolType.CLASS_NAME,
+                    line=line_number,
+                    class_name=None,
+                    return_type=None
+                ),
+                    Symbol(
+                        _name=groups.group("class_name"),
+                        type=SymbolType.CLASS_IDENTITY,
+                        line=line_number,
+                        class_name=None,
+                        return_type=None
+                )]
+                # line_context = LineContextType.CLASS_IMPLEMENTATION
 
-        if symbol is not None:
-            symbols.append(symbol)
-            last_symbol = symbol
+        if parsed_symbols:
+            symbols.extend(parsed_symbols)
+            last_symbol = parsed_symbols[:]
+            parsed_symbols = []
 
     symbol_table = SymbolTable(file_path, symbols, header_file=is_header_file)
     return symbol_table
@@ -164,28 +199,24 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
                 continue
         for symbol in symbol_table.symbols:
             if symbol.type == SymbolType.FUNCTION:
-                new_name = encode_name(symbol.name)
-
                 if symbol.name in duplicates:
                     logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
                     continue
-                # logger.info(f"Hashed function name '{symbol.name}' to '{new_name}'")
-                global_hashed_symbol_table[symbol.name] = new_name
+                global_hashed_symbol_table[symbol.name] = symbol.hash_name
             elif symbol.type == SymbolType.STATIC_VARIABLE:
-                new_name = encode_name(symbol.name)
-                # if symbol.name in duplicates:
-                #     logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
-                #     continue
+                new_name = symbol.hash_name
                 global_hashed_symbol_table[symbol.name] = new_name
                 logger.info(f"Hashed static variable name '{symbol.name}' to '{new_name}' "
                             f"{symbol_table.file_path}:{symbol.line}")
             elif symbol.type == SymbolType.CONST_VARIABLE:
-                new_name = encode_name(symbol.name)
-                # if symbol.name in duplicates:
-                #     logger.warning(f"Duplicated symbol {symbol.name} found in {symbol_table.file_path} - ignore")
-                #     continue
+                new_name = symbol.hash_name
                 global_hashed_symbol_table[symbol.name] = new_name
                 logger.info(f"Hashed const variable name '{symbol.name}' to '{new_name}' "
+                            f"{symbol_table.file_path}:{symbol.line}")
+            elif symbol.type in [SymbolType.CLASS_NAME, SymbolType.CLASS_IDENTITY]:
+                new_name = symbol.hash_name
+                global_hashed_symbol_table[symbol.name] = new_name
+                logger.info(f"Hashed class name '{symbol.name}' to '{new_name}' "
                             f"{symbol_table.file_path}:{symbol.line}")
 
     return global_hashed_symbol_table

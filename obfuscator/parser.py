@@ -24,3 +24,5 @@ re_cpp_method = re.compile(r"^\w+\s+(?P<class_name>\w+)::(?P<method_name>\w+)\(.
 re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+\*?\s?(?P<var_name>\w+)\s?=?.*(;|{).*")
 
 re_const_variable = re.compile(r"const\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+(?P<var_name>\w+)\s*=?.*(;|{).*")
+
+re_cpp_class_name = re.compile(r"^class\s+(?P<class_name>\w+)\s*{.*")

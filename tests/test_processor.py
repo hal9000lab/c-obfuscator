@@ -48,12 +48,12 @@ def test_re_c_function(line, expected_name, expected_type):
     ("static bool updateBasel", None, None),
     ("static bool updateBaseline", None, None),
     ("bool isNewPmValue = false;", None, None),
-    ("static constexpr auto Identity = [](auto i) { return i; };",  None, None),
-    ("static const uint8_t PM = 10;",  None, None),
+    ("static constexpr auto Identity = [](auto i) { return i; };", None, None),
+    ("static const uint8_t PM = 10;", None, None),
     ("const double AMB = 10; // TODO: tune this ratio", "AMB", "double"),
     ("    const double AMB = 10; // TODO: tune this ratio", None, None),
     ("#include <vector>", None, None),
-    ("static const vector<uint8_t> SAMPLE = {1, 2, 3};",  None, None),
+    ("static const vector<uint8_t> SAMPLE = {1, 2, 3};", None, None),
     ("typedef struct SmokeData {", None, None),
 
 ])
@@ -65,3 +65,15 @@ def test_re_const_variable(line, expected_name, expected_type):
         assert match is not None
         assert match.group("var_name") == expected_name
         assert match.group("var_type") == expected_type
+
+
+@pytest.mark.parametrize("line,expected_name", [
+    ("class ABC {", "ABC")
+])
+def test_re_cpp_class_name(line, expected_name):
+    match = parser.re_cpp_class_name.match(line)
+    if expected_name is None:
+        assert match is None
+    else:
+        assert match is not None
+        assert match.group("class_name") == expected_name
