@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class SymbolType(Enum):
+    CLASS_CONSTRUCTOR = "class_constructor"
+    CLASS_DESTRUCTOR = "class_destructor"
+    CLASS_VIRTUAL_DESTRUCTOR = "class_virtual_destructor"
     FUNCTION = "function"
     METHOD = "method"
     CLASS = "class"
@@ -44,15 +47,26 @@ class Symbol:
             return f"class {self._name}"
         elif self.type == SymbolType.CLASS_IDENTITY:
             return f"{self._name}::"
+        elif self.type == SymbolType.CLASS_DESTRUCTOR:
+            return f"~{self._name}"
+        elif self.type == SymbolType.CLASS_VIRTUAL_DESTRUCTOR:
+            return f"virtual ~{self._name}"
         return self._name
 
     @property
     def hash_name(self):
+        encoded_name = encode_name(self._name)
         if self.type == SymbolType.CLASS_NAME:
             return f"class {encode_name(self._name)}"
         elif self.type == SymbolType.CLASS_IDENTITY:
             return f"{encode_name(self._name)}::"
-        return encode_name(self._name)
+        elif self.type == SymbolType.CLASS_CONSTRUCTOR:
+            return f"{encoded_name}"
+        elif self.type == SymbolType.CLASS_DESTRUCTOR:
+            return f"~{encoded_name}"
+        elif self.type == SymbolType.CLASS_VIRTUAL_DESTRUCTOR:
+            return f"virtual ~{encoded_name}"
+        return encoded_name
 
 
 @dataclasses.dataclass
@@ -94,48 +108,70 @@ def process_c_code(file_path: pathlib.Path, lines: List[str]) -> SymbolTable:
 
         parsed_symbols = []
 
-        if line_context == LineContextType.GLOBAL_VARIABLE:
-            if groups := re_c_function.match(line_strip):
-                parsed_symbols = [Symbol(
-                    _name=groups.group("func_name"),
-                    type=SymbolType.FUNCTION,
-                    return_type=None,
-                    line=line_number,
-                    class_name=None
-                )]
-                line_context = LineContextType.FUNCTION_DEFINITION
-            elif groups := re_static_variable.match(line):
-                parsed_symbols = [Symbol(
-                    _name=groups.group("var_name"),
-                    type=SymbolType.STATIC_VARIABLE,
-                    line=line_number,
-                    class_name=None,
-                    return_type=groups.group("var_type")
-                )]
-            elif groups := re_const_variable.match(line):
-                parsed_symbols = [Symbol(
-                    _name=groups.group("var_name"),
-                    type=SymbolType.CONST_VARIABLE,
-                    line=line_number,
-                    class_name=None,
-                    return_type=groups.group("var_type")
-                )]
-            elif groups := re_cpp_class_name.match(line):
-                parsed_symbols = [Symbol(
+        if groups := re_c_function.match(line_strip):
+            parsed_symbols = [Symbol(
+                _name=groups.group("func_name"),
+                type=SymbolType.FUNCTION,
+                return_type=None,
+                line=line_number,
+                class_name=None
+            )]
+            line_context = LineContextType.FUNCTION_DEFINITION
+        elif groups := re_static_variable.match(line):
+            parsed_symbols = [Symbol(
+                _name=groups.group("var_name"),
+                type=SymbolType.STATIC_VARIABLE,
+                line=line_number,
+                class_name=None,
+                return_type=groups.group("var_type")
+            )]
+        elif groups := re_const_variable.match(line):
+            parsed_symbols = [Symbol(
+                _name=groups.group("var_name"),
+                type=SymbolType.CONST_VARIABLE,
+                line=line_number,
+                class_name=None,
+                return_type=groups.group("var_type")
+            )]
+        elif groups := re_cpp_class_name.match(line):
+            parsed_symbols = [
+                Symbol(
                     _name=groups.group("class_name"),
                     type=SymbolType.CLASS_NAME,
                     line=line_number,
                     class_name=None,
                     return_type=None
                 ),
-                    Symbol(
-                        _name=groups.group("class_name"),
-                        type=SymbolType.CLASS_IDENTITY,
-                        line=line_number,
-                        class_name=None,
-                        return_type=None
-                )]
-                # line_context = LineContextType.CLASS_IMPLEMENTATION
+                Symbol(
+                    _name=groups.group("class_name"),
+                    type=SymbolType.CLASS_IDENTITY,
+                    line=line_number,
+                    class_name=None,
+                    return_type=None
+                ),
+                Symbol(
+                    _name=groups.group("class_name"),
+                    type=SymbolType.CLASS_CONSTRUCTOR,
+                    line=line_number,
+                    class_name=None,
+                    return_type=None,
+                ),
+                Symbol(
+                    _name=groups.group("class_name"),
+                    type=SymbolType.CLASS_DESTRUCTOR,
+                    line=line_number,
+                    class_name=None,
+                    return_type=None,
+                ),
+                Symbol(
+                    _name=groups.group("class_name"),
+                    type=SymbolType.CLASS_VIRTUAL_DESTRUCTOR,
+                    line=line_number,
+                    class_name=None,
+                    return_type=None,
+                ),
+            ]
+            # line_context = LineContextType.CLASS_IMPLEMENTATION
 
         if parsed_symbols:
             symbols.extend(parsed_symbols)
@@ -214,7 +250,7 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
                 global_hashed_symbol_table[symbol.name] = new_name
                 logger.info(f"Hashed const variable name '{symbol.name}' to '{new_name}' "
                             f"{symbol_table.file_path}:{symbol.line}")
-            elif symbol.type in [SymbolType.CLASS_NAME, SymbolType.CLASS_IDENTITY]:
+            elif symbol.type in [SymbolType.CLASS_NAME, SymbolType.CLASS_IDENTITY, SymbolType.CLASS_DESTRUCTOR, SymbolType.CLASS_VIRTUAL_DESTRUCTOR, SymbolType.CLASS_CONSTRUCTOR]:
                 new_name = symbol.hash_name
                 global_hashed_symbol_table[symbol.name] = new_name
                 logger.info(f"Hashed class name '{symbol.name}' to '{new_name}' "
