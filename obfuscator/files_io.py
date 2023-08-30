@@ -16,6 +16,8 @@ def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dic
         lines = code_file.readlines()
 
     for line_number, line in enumerate(lines, 0):
+        if line.startswith("#"):  # ignore any directives
+            continue
         for orig_name, new_name in hashed_symbol_table.items():
             if orig_name in line:
                 lines[line_number] = lines[line_number].replace(orig_name, new_name)
