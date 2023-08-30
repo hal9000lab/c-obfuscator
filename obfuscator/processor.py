@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import pathlib
+import re
 from enum import Enum
 from typing import List, Optional, Dict
 
@@ -174,7 +175,7 @@ def _find_duplicates(symbols_tables: List[SymbolTable]) -> List[str]:
     return duplicates
 
 
-def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = None) -> Dict[str, str]:
+def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = None) -> Dict[re.Pattern, str]:
     """Hash the symbols in the symbol tables
 
     Args:
@@ -218,5 +219,8 @@ def hash_symbols(symbol_tables: List[SymbolTable], ignore_files: List[str] = Non
                 global_hashed_symbol_table[symbol.name] = new_name
                 logger.info(f"Hashed class name '{symbol.name}' to '{new_name}' "
                             f"{symbol_table.file_path}:{symbol.line}")
+
+    global_hashed_symbol_table = {
+        re.compile(f"\\b{key}\\b"): value for key, value in global_hashed_symbol_table.items()}
 
     return global_hashed_symbol_table

@@ -1,6 +1,7 @@
 import logging
 import os
 import pathlib
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Dict
 logger = logging.getLogger(__name__)
 
 
-def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dict[str, str]):
+def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dict[re.Pattern, str]):
     """Rewrite the file with the hashed symbol table."""
 
     with open(orig_file) as code_file:
@@ -18,9 +19,9 @@ def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dic
     for line_number, line in enumerate(lines, 0):
         if line.startswith("#"):  # ignore any directives
             continue
-        for orig_name, new_name in hashed_symbol_table.items():
-            if orig_name in line:
-                lines[line_number] = lines[line_number].replace(orig_name, new_name)
+        for re_orig_name, new_name in hashed_symbol_table.items():
+            if re_orig_name.search(line) is not None:
+                lines[line_number] = re_orig_name.sub(new_name, lines[line_number])
 
     dst_file = pathlib.Path(dst_dir) / orig_file.name
     with open(dst_file, "w") as code_file:
