@@ -55,7 +55,6 @@ def test_re_c_function(line, expected_name, expected_type):
     ("#include <vector>", None, None),
     ("static const vector<uint8_t> SAMPLE = {1, 2, 3};", None, None),
     ("typedef struct SmokeData {", None, None),
-
 ])
 def test_re_const_variable(line, expected_name, expected_type):
     match = parser.re_const_variable.match(line)

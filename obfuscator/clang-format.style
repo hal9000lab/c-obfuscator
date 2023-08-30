@@ -1,0 +1,4 @@
+---
+BasedOnStyle: Google
+# No limit on line length
+ColumnLimit: 300

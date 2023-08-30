@@ -3,6 +3,8 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Dict
@@ -50,6 +52,10 @@ def prepare_source_files(dirs: pathlib.Path, tmp_location: pathlib.Path = None) 
     logger.info(f"Copied {dirs} to {tmp_location}")
 
     # Run clang-format on the files in tmp_location.
-    os.system(f"clang-format -style=google -i {tmp_location}/*")
+    ret = subprocess.call(f"clang-format -style=file:obfuscator/clang-format.style -i {tmp_location}/*", shell=True)
+    logger.info(f"clang-format ret code {ret}")
+    if ret != 0:
+        sys.exit(ret)
+
 
     return pathlib.Path(tmp_location)
