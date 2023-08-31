@@ -59,10 +59,11 @@ def main():
         for key, value in hashed_symbols.items():
             f.write(f"{key} {value}\n")
 
-    os.makedirs(args.output, exist_ok=True)
+    if args.output:
+        os.makedirs(args.output, exist_ok=True)
 
-    if args.clean_output and os.path.exists(args.output) and args.output not in [".", "/"]:
-        shutil.rmtree(args.output)
+        if args.clean_output and os.path.exists(args.output) and args.output not in [".", "/"]:
+            shutil.rmtree(args.output)
 
     # Rewrite the files.
     logger.info(f"Extra files: {args.extra_file}")
