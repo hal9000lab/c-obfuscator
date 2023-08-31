@@ -15,8 +15,9 @@ logger = logging.getLogger()
 
 def _args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--location", help="Location of the file to be processed")
+    parser.add_argument("--location", help="Location of the file to be processed", required=True)
     parser.add_argument("--output", help="Location of the output files")
+    parser.add_argument("--inplace", action="store_true", help="Rewrite the file inplace")
     parser.add_argument("--ignore-file", nargs="*", help="Ignore file")
     parser.add_argument("--tmp", default=None, help="Temporary directory")
     parser.add_argument("--clean-output", action="store_true", help="Clean the output directory")
@@ -70,7 +71,7 @@ def main():
         if ignore_dir_names.match(str(file_path)) is not None:
             continue
 
-        files_io.rewrite_file(file_path, args.output, hashed_symbols)
+        files_io.rewrite_file(file_path, args.output, hashed_symbols, args.inplace)
 
 
 if __name__ == "__main__":

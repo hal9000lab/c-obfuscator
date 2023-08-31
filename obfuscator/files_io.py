@@ -12,7 +12,7 @@ from typing import Dict
 logger = logging.getLogger(__name__)
 
 
-def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dict[re.Pattern, str]):
+def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dict[re.Pattern, str], inplace: bool = False):
     """Rewrite the file with the hashed symbol table."""
 
     with open(orig_file) as code_file:
@@ -25,7 +25,10 @@ def rewrite_file(orig_file: pathlib.Path, dst_dir: str, hashed_symbol_table: Dic
             if re_orig_name.search(line) is not None:
                 lines[line_number] = re_orig_name.sub(new_name, lines[line_number])
 
-    dst_file = pathlib.Path(dst_dir) / orig_file.name
+    if inplace:
+        dst_file = orig_file
+    else:
+        dst_file = pathlib.Path(dst_dir) / orig_file.name
     with open(dst_file, "w") as code_file:
         code_file.writelines(lines)
         logger.info(f"Rewrote {orig_file} to {dst_file}")
