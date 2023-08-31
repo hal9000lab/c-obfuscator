@@ -55,7 +55,7 @@ def prepare_source_files(dirs: pathlib.Path, tmp_location: pathlib.Path = None) 
     logger.info(f"Copied {dirs} to {tmp_location}")
 
     # Run clang-format on the files in tmp_location.
-    ret = subprocess.call(f"clang-format -style=file:obfuscator/clang-format.style -i {tmp_location}/*", shell=True)
+    ret = subprocess.call(f"clang-format -style=file:{os.path.dirname(os.path.abspath(__file__))}/clang-format.style -i {tmp_location}/*", shell=True)
     logger.info(f"clang-format ret code {ret}")
     if ret != 0:
         sys.exit(ret)
