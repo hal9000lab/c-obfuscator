@@ -1,16 +1,22 @@
 [tool.poetry]
 name = "c-obfuscator"
-version = "0.0.1"
+version = "0.0.3"
 description = ""
 authors = ["Jakub Krajniak <jkrajniak@gmail.com>"]
 readme = "README.md"
-packages = [{include = "c_obfuscator"}]
+packages = [{include = "obfuscator"}]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-clang-format = "^16.0.6"
 pycparser = "^2.21"
 
+[tool.poetry.scripts]
+"obfuscator" = "obfuscator.main:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
