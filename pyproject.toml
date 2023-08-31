@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "c-obfuscator"
-version = "0.0.6"
+version = "0.0.7"
 description = ""
 authors = ["Jakub Krajniak <jkrajniak@gmail.com>"]
 readme = "README.md"

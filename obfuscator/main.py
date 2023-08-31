@@ -67,12 +67,17 @@ def main():
 
     # Rewrite the files.
     logger.info(f"Extra files: {args.extra_file}")
-    src_files += [pathlib.Path(file_path) for file_path in args.extra_file]
-    for file_path in src_files:
+    all_files = src_files + [pathlib.Path(file_path) for file_path in args.extra_file]
+    for file_path in all_files:
         if ignore_dir_names.match(str(file_path)) is not None:
             continue
 
         files_io.rewrite_file(file_path, args.output, hashed_symbols, args.inplace)
+
+    if args.inplace:
+        logger.info(f"Rewrote {args.location} inplace.")
+        for src_file in src_files:
+            shutil.copy(src_file, args.location)
 
 
 if __name__ == "__main__":
