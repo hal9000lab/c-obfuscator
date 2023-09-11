@@ -14,6 +14,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.9"
 pycparser = "^2.21"
+libclang = "^16.0.6"
 
 [tool.poetry.scripts]
 "obfuscator" = "obfuscator.main:main"
