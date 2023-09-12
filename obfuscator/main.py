@@ -5,6 +5,7 @@ import pathlib
 import random
 import re
 import shutil
+from typing import List
 
 from obfuscator import processor, files_io
 
@@ -29,18 +30,25 @@ def _args():
     return parser.parse_args()
 
 
-def main():
-    args = _args()
+def main_cmd(location: str,
+             output: str,
+             inplace: bool,
+             seed: int,
+             ignore_files: List[str],
+             tmp: str,
+             clean_output: bool,
+             extra_file: List[str]):
+    random.seed(seed)
 
-    random.seed(args.seed)
-
-    src_dir = files_io.prepare_source_files(args.location, args.tmp)
+    src_dir = files_io.prepare_source_files(location, tmp)
 
     ignore_dir_names = re.compile(
         r".*(build|\.git|\.vscode|\.idea|\.pytest_cache|__pycache__|cmake).*"
     )
 
-    src_files = [file_path for ext in [".cpp", ".h"] for file_path in src_dir.glob(f"**/*{ext}")]
+    src_files = [
+        file_path for ext in [".cpp", ".h"] for file_path in src_dir.glob(f"**/*{ext}")
+    ]
     # Scan to get the symbol table.
     symbol_tables = []
     for file_path in src_files:
@@ -59,25 +67,38 @@ def main():
         for key, value in hashed_symbols.items():
             f.write(f"{key} {value}\n")
 
-    if args.output:
-        os.makedirs(args.output, exist_ok=True)
+    if output:
+        os.makedirs(output, exist_ok=True)
 
-        if args.clean_output and os.path.exists(args.output) and args.output not in [".", "/"]:
-            shutil.rmtree(args.output)
+        if (
+            clean_output
+            and os.path.exists(output)
+            and output not in [".", "/"]
+        ):
+            shutil.rmtree(output)
 
     # Rewrite the files.
-    logger.info(f"Extra files: {args.extra_file}")
-    all_files = src_files + [pathlib.Path(file_path) for file_path in args.extra_file]
+    logger.info(f"Extra files: {extra_file}")
+    all_files = src_files + [pathlib.Path(file_path) for file_path in extra_file]
     for file_path in all_files:
         if ignore_dir_names.match(str(file_path)) is not None:
             continue
 
-        files_io.rewrite_file(file_path, args.output, hashed_symbols, args.inplace)
+        if ignore_files and file_path.name in ignore_files:
+            logger.info(f"Ignoring file {file_path}")
+            continue
 
-    if args.inplace:
-        logger.info(f"Rewrote {args.location} inplace.")
+        files_io.rewrite_file(file_path, output, hashed_symbols, inplace)
+
+    if inplace:
+        logger.info(f"Rewrote {location} inplace.")
         for src_file in src_files:
-            shutil.copy(src_file, args.location)
+            shutil.copy(src_file, location)
+
+
+def main():
+    args = _args()
+    main_cmd(args.location, args.output, args.inplace, args.seed, args.ignore_file, args.tmp, args.clean_output, args.extra_file)
 
 
 if __name__ == "__main__":
