@@ -13,9 +13,9 @@ reserved_keywords = {
     "transaction_safe", "transaction_safe_dynamic", "import", "module", "co_await", "co_return", "co_yield"
 }
 
-re_c_function = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\)\s*{$")
+re_c_function = re.compile(r"^(?P<func_type>\w+)\s+\*?\s?(?P<func_name>\w+)\(.*\)\s*{$")
 
-re_c_function_def = re.compile(r"^(?P<func_type>\w+)\s+(?P<func_name>\w+)\(.*\);")
+re_c_function_def = re.compile(r"^(?P<func_type>\w+)\s+\*?\s?(?P<func_name>\w+)\(.*\);")
 
 # Regular expression for matching C++ class method and extract method name
 re_cpp_method = re.compile(r"^\w+\s+(?P<class_name>\w+)::(?P<method_name>\w+)\(.*\)\s*{.*")
@@ -26,3 +26,8 @@ re_static_variable = re.compile(r"^static\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+\*?
 re_const_variable = re.compile(r"const\s+(?P<var_type>[a-zA-Z0-9_<> ]+)\s+(?P<var_name>\w+)\s*=?.*(;|{).*")
 
 re_cpp_class_name = re.compile(r"^class\s+(?P<class_name>\w+)\s*{.*")
+
+re_cpp_class_name_derived = re.compile(
+    r"^class\s+(?P<class_name>\w+)\s*:\s*(public|private|protected)\s+(?P<base_class_name>\w+)\s*{.*")
+
+re_cpp_class_method_override = re.compile(r"^(?P<func_type>\w+)\s+\*?\s?(?P<func_name>\w+)\(.*\) override;")

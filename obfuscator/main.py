@@ -22,7 +22,7 @@ def _args():
     parser.add_argument("--tmp", default=None, help="Temporary directory")
     parser.add_argument("--clean-output", action="store_true", help="Clean the output directory")
 
-    parser.add_argument("--extra-file", action='append', help="Extra file to be rewritten")
+    parser.add_argument("--extra-file", action='append', help="Extra file to be rewritten", default=[])
 
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
 
